@@ -27,11 +27,10 @@ use Waotomatis\Client;
 
 $wao = new Client(getenv('WAO_API_KEY'));
 
-$msg = $wao->sessions('sess_123')->messages->send([
-    'to'   => '628123456789',
-    'type' => 'text',
-    'text' => 'Halo dari WAOtomatis 👋',
-]);
+$msg = $wao->sessions('sess_123')->messages->sendText(
+    '628123456789',
+    'Halo dari WAOtomatis 👋',
+);
 
 echo $msg['id']; // msg_abc123
 ```
@@ -72,264 +71,198 @@ $wao->sessions('sess_123')->delete();
 
 ## Sending messages
 
-### Typed helpers (recommended)
-
-Every message type has a first-class method on `messages` — `to` is always the
-first argument, required fields are required arguments, optionals are nullable,
-and the last argument is always an optional `$idempotencyKey`. They build the
-correct body and return the same shape as `send()`.
+There is one method per message type — eight in total. Across all of them `$to`
+is the first argument, required fields are required arguments, optionals are
+nullable (and dropped from the wire body when `null`), and the last argument is
+always an optional `$idempotencyKey`. Each posts to its own endpoint and returns
+`['id' => ..., 'eventId' => ..., 'providerMessageId' => ..., 'status' => ...]`.
 
 ```php
 $messages = $wao->sessions('sess_123')->messages;
+```
 
-// Text (with link preview)
+### Text
+
+`sendText(to, text, previewUrl?, replyTo?, idempotencyKey?)`
+
+```php
+// Plain text, with a link preview
 $messages->sendText('628123456789', 'Cek https://waotomatis.com', previewUrl: true);
+```
 
+### Media
+
+`sendMedia(to, type, mediaId?, link?, caption?, fileName?, voice?, replyTo?, idempotencyKey?)`
+
+One method covers `image`, `video`, `audio`, `document`, and `sticker` — the
+media kind is the `$type` argument. Provide exactly one of `$mediaId` (from an
+upload) or `$link` (a public URL). `$caption` applies to image/video/document,
+`$fileName` to document, and `$voice` marks audio as a voice note.
+
+```php
 // Image by uploaded media id (with caption + idempotency key)
-$messages->sendImage('628123456789', mediaId: 'media_abc', caption: 'Invoice', idempotencyKey: 'inv-4711');
+$messages->sendMedia('628123456789', 'image', mediaId: 'media_abc', caption: 'Invoice', idempotencyKey: 'inv-4711');
 
-// Interactive reply buttons (max 3)
-$messages->sendButtons('628123456789', 'Konfirmasi pesananmu?', [
+// Document by public link
+$messages->sendMedia('628123456789', 'document', link: 'https://example.com/invoice.pdf', fileName: 'invoice.pdf');
+
+// Audio as a voice note
+$messages->sendMedia('628123456789', 'audio', mediaId: 'media_xyz', voice: true);
+```
+
+### Template
+
+`sendTemplate(to, name, languageCode, components?, replyTo?, idempotencyKey?)`
+
+`$components` is Meta's component array (header/body/buttons params), passed
+through as-is.
+
+```php
+$messages->sendTemplate('628123456789', 'order_update', 'en_US', [
+    ['type' => 'body', 'parameters' => [['type' => 'text', 'text' => 'A1234']]],
+]);
+```
+
+### Interactive
+
+`sendInteractive(to, type, bodyText?, headerText?, footerText?, buttons?, listButton?, sections?, ctaDisplayText?, ctaUrl?, flow?, catalogId?, productRetailerId?, productSections?, replyTo?, idempotencyKey?)`
+
+One method covers all interactive variants — the variant is the `$type` argument
+(`button`, `list`, `cta_url`, `flow`, `product`, or `product_list`). Supply only
+the fields that variant needs.
+
+```php
+// Reply buttons (max 3)
+$messages->sendInteractive('628123456789', 'button', bodyText: 'Konfirmasi pesananmu?', buttons: [
     ['id' => 'yes', 'title' => 'Ya'],
     ['id' => 'no',  'title' => 'Tidak'],
 ]);
-```
 
-The full set: `sendText`, `sendImage`, `sendVideo`, `sendAudio`, `sendDocument`,
-`sendSticker`, `sendTemplate`, `sendButtons`, `sendList`, `sendCtaUrl`,
-`sendFlow`, `sendProduct`, `sendProductList`, `sendReaction`, `sendLocation`,
-`sendContacts`, `sendCarousel`.
-
-### Generic `send()`
-
-`messages->send()` takes an array matching the API's `SendMessageInput`. The
-typed helpers are sugar over this — drop down to `send()` for anything not
-covered, or when you already have the body as an array.
-
-```php
-// Text (with link preview)
-$wao->sessions('sess_123')->messages->send([
-    'to'         => '628123456789',
-    'type'       => 'text',
-    'text'       => 'Cek https://waotomatis.com',
-    'previewUrl' => true,
+// List
+$messages->sendInteractive('628123456789', 'list', bodyText: 'Pilih menu', listButton: 'Lihat', sections: [
+    ['title' => 'Makanan', 'rows' => [
+        ['id' => 'nasi', 'title' => 'Nasi goreng', 'description' => 'Pedas'],
+    ]],
 ]);
 
-// Image by uploaded media id
-$wao->sessions('sess_123')->messages->send([
-    'to'      => '628123456789',
-    'type'    => 'image',
-    'mediaId' => 'media_abc',
-    'caption' => 'Invoice',
+// Call-to-action URL button
+$messages->sendInteractive('628123456789', 'cta_url',
+    bodyText: 'Visit our store',
+    ctaDisplayText: 'Shop now',
+    ctaUrl: 'https://example.com/shop',
+);
+
+// WhatsApp Flow
+$messages->sendInteractive('628123456789', 'flow', bodyText: 'Book an appointment', flow: [
+    'flowCta'           => 'Book now',
+    'flowId'            => '1234567890',             // optional
+    'flowAction'        => 'navigate',              // 'navigate' | 'data_exchange'
+    'flowActionPayload' => ['screen' => 'WELCOME'], // optional
+    'mode'              => 'published',             // 'draft' | 'published'
 ]);
 
-// Document by public link
-$wao->sessions('sess_123')->messages->send([
-    'to'       => '628123456789',
-    'type'     => 'document',
-    'link'     => 'https://example.com/invoice.pdf',
-    'fileName' => 'invoice.pdf',
-]);
+// Single catalog product
+$messages->sendInteractive('628123456789', 'product',
+    catalogId: 'cat_123',
+    productRetailerId: 'SKU-1',
+);
 
-// Audio as a voice note
-$wao->sessions('sess_123')->messages->send([
-    'to'      => '628123456789',
-    'type'    => 'audio',
-    'mediaId' => 'media_xyz',
-    'voice'   => true,
-]);
-```
-
-Media types: `image`, `video`, `audio`, `document` (and `sticker`) accept either
-`mediaId` (from an upload) or a public `link`. `template` and `interactive`
-messages are also supported via their `template` / `interactive` keys.
-
-The `$input` array maps 1:1 to the API body, so every message type below is sent
-by setting `type` and the matching key — no special builders needed.
-
-### Reactions
-
-React to an inbound message by its provider `wamid`. Send an empty `emoji` to
-clear a reaction you previously sent.
-
-```php
-$wao->sessions('sess_123')->messages->send([
-    'to'       => '628123456789',
-    'type'     => 'reaction',
-    'reaction' => [
-        'messageId' => 'wamid.HBgL...',
-        'emoji'     => '👍',
+// Multi-section product list
+$messages->sendInteractive('628123456789', 'product_list',
+    bodyText: 'Browse our products',
+    catalogId: 'cat_123',
+    productSections: [
+        ['title' => 'Shoes', 'productItems' => [
+            ['productRetailerId' => 'SKU-1'],
+            ['productRetailerId' => 'SKU-2'],
+        ]],
     ],
-]);
+);
+```
+
+### Reaction
+
+`sendReaction(to, messageId, emoji, idempotencyKey?)`
+
+React to a message by its provider `wamid`. Pass an empty `$emoji` to clear a
+reaction you previously sent.
+
+```php
+$messages->sendReaction('628123456789', 'wamid.HBgL...', '👍');
 
 // Clear it
-$wao->sessions('sess_123')->messages->send([
-    'to'       => '628123456789',
-    'type'     => 'reaction',
-    'reaction' => ['messageId' => 'wamid.HBgL...', 'emoji' => ''],
-]);
+$messages->sendReaction('628123456789', 'wamid.HBgL...', '');
 ```
 
 ### Location
 
+`sendLocation(to, latitude, longitude, name?, address?, replyTo?, idempotencyKey?)`
+
 ```php
-$wao->sessions('sess_123')->messages->send([
-    'to'       => '628123456789',
-    'type'     => 'location',
-    'location' => [
-        'latitude'  => -6.2,
-        'longitude' => 106.816666,
-        'name'      => 'Monas',           // optional
-        'address'   => 'Jakarta Pusat',   // optional
-    ],
-]);
+$messages->sendLocation('628123456789', -6.2, 106.816666, name: 'Monas', address: 'Jakarta Pusat');
 ```
 
 ### Contacts
 
-`contacts` is an array of WhatsApp contact-card objects. Each card requires
+`sendContacts(to, contacts, replyTo?, idempotencyKey?)`
+
+`$contacts` is an array of WhatsApp contact-card objects. Each card requires
 `name.formatted_name`; `phones`, `emails`, `org`, `urls`, `addresses`, and
 `birthday` are optional and passed through as-is.
 
 ```php
-$wao->sessions('sess_123')->messages->send([
-    'to'       => '628123456789',
-    'type'     => 'contacts',
-    'contacts' => [
-        [
-            'name'   => [
-                'formatted_name' => 'Budi Santoso',
-                'first_name'     => 'Budi',
-                'last_name'      => 'Santoso',
-            ],
-            'phones' => [
-                ['phone' => '+628123456789', 'type' => 'WORK', 'wa_id' => '628123456789'],
-            ],
-            'emails' => [
-                ['email' => 'budi@example.com', 'type' => 'WORK'],
-            ],
-            'org'    => ['company' => 'WAOtomatis', 'title' => 'Engineer'],
+$messages->sendContacts('628123456789', [
+    [
+        'name'   => [
+            'formatted_name' => 'Budi Santoso',
+            'first_name'     => 'Budi',
+            'last_name'      => 'Santoso',
         ],
+        'phones' => [
+            ['phone' => '+628123456789', 'type' => 'WORK', 'wa_id' => '628123456789'],
+        ],
+        'emails' => [
+            ['email' => 'budi@example.com', 'type' => 'WORK'],
+        ],
+        'org'    => ['company' => 'WAOtomatis', 'title' => 'Engineer'],
     ],
 ]);
 ```
 
-### Carousel (template)
+### Carousel
+
+`sendCarousel(to, name, languageCode, cards, bodyParams?, replyTo?, idempotencyKey?)`
 
 A carousel template: a named, language-tagged template with up to ten cards,
 each carrying its own media header, body params, and buttons.
 
 ```php
-$wao->sessions('sess_123')->messages->send([
-    'to'       => '628123456789',
-    'type'     => 'carousel',
-    'carousel' => [
-        'name'         => 'summer_sale',
-        'languageCode' => 'en_US',
-        'bodyParams'   => ['Budi'],      // optional — fills the message bubble body
-        'cards'        => [
-            [
-                'headerImageId' => 'media_abc',          // or 'headerImageLink' => 'https://...'
-                'bodyParams'    => ['Shoes', '30%'],
-                'buttons'       => [
-                    ['subType' => 'quick_reply', 'index' => 0, 'payload' => 'BUY_SHOES'],
-                    ['subType' => 'url', 'index' => 1, 'urlParam' => 'shoes'],
-                ],
-            ],
-            [
-                'headerVideoLink' => 'https://example.com/promo.mp4',
-                'bodyParams'      => ['Bags', '20%'],
-                'buttons'         => [
-                    ['subType' => 'quick_reply', 'index' => 0, 'payload' => 'BUY_BAGS'],
-                ],
-            ],
+$messages->sendCarousel('628123456789', 'summer_sale', 'en_US', [
+    [
+        'headerImageId' => 'media_abc',          // or 'headerImageLink' => 'https://...'
+        'bodyParams'    => ['Shoes', '30%'],
+        'buttons'       => [
+            ['subType' => 'quick_reply', 'index' => 0, 'payload' => 'BUY_SHOES'],
+            ['subType' => 'url', 'index' => 1, 'urlParam' => 'shoes'],
         ],
     ],
-]);
-```
-
-### Interactive messages
-
-`interactive.type` selects the variant. Alongside the existing `button` and
-`list` types, the API also supports `cta_url`, `flow`, `product`, and
-`product_list`.
-
-```php
-// Call-to-action URL button
-$wao->sessions('sess_123')->messages->send([
-    'to'          => '628123456789',
-    'type'        => 'interactive',
-    'interactive' => [
-        'type'           => 'cta_url',
-        'bodyText'       => 'Visit our store',
-        'headerText'     => 'New arrivals',   // optional
-        'footerText'     => 'Limited time',   // optional
-        'ctaDisplayText' => 'Shop now',
-        'ctaUrl'         => 'https://example.com/shop',
-    ],
-]);
-
-// WhatsApp Flow
-$wao->sessions('sess_123')->messages->send([
-    'to'          => '628123456789',
-    'type'        => 'interactive',
-    'interactive' => [
-        'type'     => 'flow',
-        'bodyText' => 'Book an appointment',
-        'flow'     => [
-            'flowCta'           => 'Book now',
-            'flowId'            => '1234567890',          // optional
-            'flowToken'         => 'tok_abc',             // optional
-            'flowAction'        => 'navigate',           // 'navigate' | 'data_exchange'
-            'flowActionPayload' => ['screen' => 'WELCOME'], // optional
-            'mode'              => 'published',           // 'draft' | 'published'
+    [
+        'headerVideoLink' => 'https://example.com/promo.mp4',
+        'bodyParams'      => ['Bags', '20%'],
+        'buttons'         => [
+            ['subType' => 'quick_reply', 'index' => 0, 'payload' => 'BUY_BAGS'],
         ],
     ],
-]);
-
-// Single catalog product
-$wao->sessions('sess_123')->messages->send([
-    'to'          => '628123456789',
-    'type'        => 'interactive',
-    'interactive' => [
-        'type'              => 'product',
-        'bodyText'          => 'Check this out',   // optional
-        'footerText'        => 'In stock',         // optional
-        'catalogId'         => 'cat_123',
-        'productRetailerId' => 'SKU-1',
-    ],
-]);
-
-// Multi-section product list
-$wao->sessions('sess_123')->messages->send([
-    'to'          => '628123456789',
-    'type'        => 'interactive',
-    'interactive' => [
-        'type'            => 'product_list',
-        'headerText'      => 'Our catalog',
-        'bodyText'        => 'Browse our products',
-        'footerText'      => 'Free shipping',      // optional
-        'catalogId'       => 'cat_123',
-        'productSections' => [
-            [
-                'title'        => 'Shoes',          // optional
-                'productItems' => [
-                    ['productRetailerId' => 'SKU-1'],
-                    ['productRetailerId' => 'SKU-2'],
-                ],
-            ],
-        ],
-    ],
-]);
+], bodyParams: ['Budi']); // bodyParams fills the message bubble body
 ```
 
 ### Idempotency
 
-Pass a key so a retried send returns the original result instead of duplicating:
+Every send method takes an optional `$idempotencyKey` as its last argument. Pass
+a key so a retried send returns the original result instead of duplicating:
 
 ```php
-$wao->sessions('sess_123')->messages->send($input, 'order-4711');
-// or inline: $input['idempotencyKey'] = 'order-4711';
+$messages->sendText('628123456789', 'Halo', idempotencyKey: 'order-4711');
 ```
 
 ### Mark as read
@@ -352,12 +285,51 @@ $m = $session->media->upload($bytes, 'photo.jpg', 'image/jpeg');
 // By local file path
 $m = $session->media->uploadFile('/path/to/photo.jpg');
 
-echo $m['mediaId']; // pass this to messages->send([... 'mediaId' => $m['mediaId']])
+echo $m['mediaId']; // pass this to messages->sendMedia($to, 'image', mediaId: $m['mediaId'])
 
 // Download inbound media bytes
 $dl = $session->media->download('media_abc');
 file_put_contents('out.bin', $dl['data']); // $dl['mimeType'] holds the content type
 ```
+
+## Templates
+
+Manage WhatsApp message templates for a session (proxies Meta's WABA template
+API). Reach them as `$wao->sessions('sess_123')->templates`.
+
+```php
+$templates = $wao->sessions('sess_123')->templates;
+
+// List (all filters optional: limit 1–100, after cursor, name, language, status, category)
+$page = $templates->list(['category' => 'MARKETING', 'limit' => 20]);
+foreach ($page['data'] as $tpl) {
+    echo "{$tpl['name']} [{$tpl['language']}] — {$tpl['status']}\n";
+}
+$next = $page['paging']['cursors']['after'] ?? null; // pass back as ['after' => $next]
+
+// Get every language version registered under a name
+$one = $templates->get('order_update'); // ['data' => [...], 'paging' => ...]
+
+// Create — submit for Meta approval. `components` is Meta's component array.
+$res = $templates->create('order_update', 'en_US', 'UTILITY', [
+    ['type' => 'BODY', 'text' => 'Your order {{1}} has shipped.'],
+    [
+        'type'    => 'BUTTONS',
+        'buttons' => [
+            ['type' => 'URL', 'text' => 'Track', 'url' => 'https://example.com/track/{{1}}'],
+        ],
+    ],
+], allowCategoryChange: true);
+echo $res['id'] . ' ' . $res['status']; // e.g. "123456 PENDING"
+
+// Delete by name (removes all language versions)
+$templates->delete('order_update'); // ['success' => true]
+```
+
+A template object has the shape
+`{ id, name, language, status, category, components, quality_score? }`. The
+`components` array follows Meta's template-component schema
+(HEADER/BODY/FOOTER/BUTTONS) and is passed through as-is.
 
 ## Webhooks
 
@@ -397,7 +369,7 @@ use Waotomatis\Exception\RateLimitError;
 use Waotomatis\Exception\WaotomatisException;
 
 try {
-    $wao->sessions('sess_123')->messages->send([...]);
+    $wao->sessions('sess_123')->messages->sendText('628123456789', 'Halo');
 } catch (RateLimitError $e) {
     sleep($e->getRetryAfter() ?? 1);
 } catch (WaotomatisException $e) {

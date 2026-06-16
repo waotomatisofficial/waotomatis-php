@@ -28,17 +28,13 @@ final class ClientTest extends TestCase
         ])));
 
         $wao = $this->client($http);
-        $msg = $wao->sessions('sess_123')->messages->send([
-            'to' => '628123456789',
-            'type' => 'text',
-            'text' => 'Halo dari WAOtomatis 👋',
-        ]);
+        $msg = $wao->sessions('sess_123')->messages->sendText('628123456789', 'Halo dari WAOtomatis 👋');
 
         self::assertSame('msg_abc123', $msg['id']);
 
         $call = $http->lastCall();
         self::assertSame('POST', $call['method']);
-        self::assertStringEndsWith('/v1/sessions/sess_123/messages', $call['url']);
+        self::assertStringEndsWith('/v1/sessions/sess_123/messages/text', $call['url']);
         self::assertStringStartsWith('https://api.waotomatis.com', $call['url']);
         self::assertSame('Bearer apiKey', $call['headers']['Authorization']);
         self::assertSame('application/json', $call['headers']['Content-Type']);
@@ -46,7 +42,7 @@ final class ClientTest extends TestCase
 
         $body = json_decode((string) $call['body'], true);
         self::assertSame('628123456789', $body['to']);
-        self::assertSame('text', $body['type']);
+        self::assertSame('Halo dari WAOtomatis 👋', $body['text']);
     }
 
     public function testIdempotencyKeyBecomesHeaderAndIsStrippedFromBody(): void
@@ -55,9 +51,7 @@ final class ClientTest extends TestCase
         $http->push(new Response(201, [], '{"id":"m","eventId":"e","status":"sent"}'));
 
         $wao = $this->client($http);
-        $wao->sessions('s1')->messages->send(
-            ['to' => '1', 'type' => 'text', 'text' => 'hi', 'idempotencyKey' => 'k1']
-        );
+        $wao->sessions('s1')->messages->sendText('1', 'hi', idempotencyKey: 'k1');
 
         $call = $http->lastCall();
         self::assertSame('k1', $call['headers']['Idempotency-Key']);
@@ -201,7 +195,7 @@ final class ClientTest extends TestCase
 
         $wao = $this->client($http, 2);
         try {
-            $wao->sessions('s1')->messages->send(['to' => '1', 'type' => 'text', 'text' => 'h']);
+            $wao->sessions('s1')->messages->sendText('1', 'h');
             self::fail('expected exception');
         } catch (WaotomatisException $e) {
             self::assertCount(1, $http->calls);

@@ -14,7 +14,7 @@ use RuntimeException;
  * the server, the SDK, and the MCP tools.
  *
  *   try {
- *       $wao->sessions($id)->messages->send([...]);
+ *       $wao->sessions($id)->messages->sendText($to, $text);
  *   } catch (RateLimitError $e) {
  *       sleep($e->getRetryAfter() ?? 1);
  *   } catch (WaotomatisException $e) {

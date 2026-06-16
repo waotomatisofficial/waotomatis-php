@@ -10,8 +10,9 @@ use Waotomatis\Client;
  * Everything you can do scoped to one session. Mirrors the REST surface 1:1.
  *
  *   $session = $wao->sessions('sess_123');
- *   $session->messages->send([...]);
+ *   $session->messages->sendText('628123456789', 'Halo');
  *   $session->media->uploadFromUrl('https://...');
+ *   $session->templates->list();
  */
 final class SessionResource
 {
@@ -19,6 +20,7 @@ final class SessionResource
 
     public MessageResource $messages;
     public MediaResource $media;
+    public TemplateResource $templates;
 
     private Client $client;
 
@@ -28,6 +30,7 @@ final class SessionResource
         $this->id = $id;
         $this->messages = new MessageResource($client, $id);
         $this->media = new MediaResource($client, $id);
+        $this->templates = new TemplateResource($client, $id);
     }
 
     /**

@@ -21,11 +21,10 @@ use Waotomatis\Resources\Sessions;
  *
  *   $wao = new Client(getenv('WAO_API_KEY'));
  *
- *   $msg = $wao->sessions('sess_123')->messages->send([
- *       'to'   => '628123456789',
- *       'type' => 'text',
- *       'text' => 'Halo dari WAOtomatis 👋',
- *   ]);
+ *   $msg = $wao->sessions('sess_123')->messages->sendText(
+ *       '628123456789',
+ *       'Halo dari WAOtomatis 👋',
+ *   );
  *
  *   echo $msg['id']; // msg_abc123
  */
@@ -88,7 +87,7 @@ final class Client
 
     /**
      * Scope to a single session:
-     * `$wao->sessions('sess_123')->messages->send([...])`.
+     * `$wao->sessions('sess_123')->messages->sendText($to, $text)`.
      *
      * A PHP class may expose a property and a method of the same name, so the
      * `sessions` property (collection: `$wao->sessions->list()`) and this
@@ -324,6 +323,6 @@ final class Client
     /** The installed SDK version (kept in sync with composer.json). */
     public static function version(): string
     {
-        return '0.3.0';
+        return '0.4.0';
     }
 }
