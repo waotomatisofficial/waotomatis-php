@@ -1,5 +1,6 @@
 {
     "name": "waotomatis/sdk",
+    "version": "0.3.0",
     "description": "Official PHP SDK for WAOtomatis — headless WhatsApp (WABA Cloud API).",
     "type": "library",
     "license": "MIT",

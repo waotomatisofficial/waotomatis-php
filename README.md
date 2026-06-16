@@ -72,7 +72,39 @@ $wao->sessions('sess_123')->delete();
 
 ## Sending messages
 
-`messages->send()` takes an array matching the API's `SendMessageInput`.
+### Typed helpers (recommended)
+
+Every message type has a first-class method on `messages` — `to` is always the
+first argument, required fields are required arguments, optionals are nullable,
+and the last argument is always an optional `$idempotencyKey`. They build the
+correct body and return the same shape as `send()`.
+
+```php
+$messages = $wao->sessions('sess_123')->messages;
+
+// Text (with link preview)
+$messages->sendText('628123456789', 'Cek https://waotomatis.com', previewUrl: true);
+
+// Image by uploaded media id (with caption + idempotency key)
+$messages->sendImage('628123456789', mediaId: 'media_abc', caption: 'Invoice', idempotencyKey: 'inv-4711');
+
+// Interactive reply buttons (max 3)
+$messages->sendButtons('628123456789', 'Konfirmasi pesananmu?', [
+    ['id' => 'yes', 'title' => 'Ya'],
+    ['id' => 'no',  'title' => 'Tidak'],
+]);
+```
+
+The full set: `sendText`, `sendImage`, `sendVideo`, `sendAudio`, `sendDocument`,
+`sendSticker`, `sendTemplate`, `sendButtons`, `sendList`, `sendCtaUrl`,
+`sendFlow`, `sendProduct`, `sendProductList`, `sendReaction`, `sendLocation`,
+`sendContacts`, `sendCarousel`.
+
+### Generic `send()`
+
+`messages->send()` takes an array matching the API's `SendMessageInput`. The
+typed helpers are sugar over this — drop down to `send()` for anything not
+covered, or when you already have the body as an array.
 
 ```php
 // Text (with link preview)

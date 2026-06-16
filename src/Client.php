@@ -324,6 +324,6 @@ final class Client
     /** The installed SDK version (kept in sync with composer.json). */
     public static function version(): string
     {
-        return '0.1.0';
+        return '0.3.0';
     }
 }
