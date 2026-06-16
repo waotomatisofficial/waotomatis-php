@@ -112,6 +112,185 @@ Media types: `image`, `video`, `audio`, `document` (and `sticker`) accept either
 `mediaId` (from an upload) or a public `link`. `template` and `interactive`
 messages are also supported via their `template` / `interactive` keys.
 
+The `$input` array maps 1:1 to the API body, so every message type below is sent
+by setting `type` and the matching key — no special builders needed.
+
+### Reactions
+
+React to an inbound message by its provider `wamid`. Send an empty `emoji` to
+clear a reaction you previously sent.
+
+```php
+$wao->sessions('sess_123')->messages->send([
+    'to'       => '628123456789',
+    'type'     => 'reaction',
+    'reaction' => [
+        'messageId' => 'wamid.HBgL...',
+        'emoji'     => '👍',
+    ],
+]);
+
+// Clear it
+$wao->sessions('sess_123')->messages->send([
+    'to'       => '628123456789',
+    'type'     => 'reaction',
+    'reaction' => ['messageId' => 'wamid.HBgL...', 'emoji' => ''],
+]);
+```
+
+### Location
+
+```php
+$wao->sessions('sess_123')->messages->send([
+    'to'       => '628123456789',
+    'type'     => 'location',
+    'location' => [
+        'latitude'  => -6.2,
+        'longitude' => 106.816666,
+        'name'      => 'Monas',           // optional
+        'address'   => 'Jakarta Pusat',   // optional
+    ],
+]);
+```
+
+### Contacts
+
+`contacts` is an array of WhatsApp contact-card objects. Each card requires
+`name.formatted_name`; `phones`, `emails`, `org`, `urls`, `addresses`, and
+`birthday` are optional and passed through as-is.
+
+```php
+$wao->sessions('sess_123')->messages->send([
+    'to'       => '628123456789',
+    'type'     => 'contacts',
+    'contacts' => [
+        [
+            'name'   => [
+                'formatted_name' => 'Budi Santoso',
+                'first_name'     => 'Budi',
+                'last_name'      => 'Santoso',
+            ],
+            'phones' => [
+                ['phone' => '+628123456789', 'type' => 'WORK', 'wa_id' => '628123456789'],
+            ],
+            'emails' => [
+                ['email' => 'budi@example.com', 'type' => 'WORK'],
+            ],
+            'org'    => ['company' => 'WAOtomatis', 'title' => 'Engineer'],
+        ],
+    ],
+]);
+```
+
+### Carousel (template)
+
+A carousel template: a named, language-tagged template with up to ten cards,
+each carrying its own media header, body params, and buttons.
+
+```php
+$wao->sessions('sess_123')->messages->send([
+    'to'       => '628123456789',
+    'type'     => 'carousel',
+    'carousel' => [
+        'name'         => 'summer_sale',
+        'languageCode' => 'en_US',
+        'bodyParams'   => ['Budi'],      // optional — fills the message bubble body
+        'cards'        => [
+            [
+                'headerImageId' => 'media_abc',          // or 'headerImageLink' => 'https://...'
+                'bodyParams'    => ['Shoes', '30%'],
+                'buttons'       => [
+                    ['subType' => 'quick_reply', 'index' => 0, 'payload' => 'BUY_SHOES'],
+                    ['subType' => 'url', 'index' => 1, 'urlParam' => 'shoes'],
+                ],
+            ],
+            [
+                'headerVideoLink' => 'https://example.com/promo.mp4',
+                'bodyParams'      => ['Bags', '20%'],
+                'buttons'         => [
+                    ['subType' => 'quick_reply', 'index' => 0, 'payload' => 'BUY_BAGS'],
+                ],
+            ],
+        ],
+    ],
+]);
+```
+
+### Interactive messages
+
+`interactive.type` selects the variant. Alongside the existing `button` and
+`list` types, the API also supports `cta_url`, `flow`, `product`, and
+`product_list`.
+
+```php
+// Call-to-action URL button
+$wao->sessions('sess_123')->messages->send([
+    'to'          => '628123456789',
+    'type'        => 'interactive',
+    'interactive' => [
+        'type'           => 'cta_url',
+        'bodyText'       => 'Visit our store',
+        'headerText'     => 'New arrivals',   // optional
+        'footerText'     => 'Limited time',   // optional
+        'ctaDisplayText' => 'Shop now',
+        'ctaUrl'         => 'https://example.com/shop',
+    ],
+]);
+
+// WhatsApp Flow
+$wao->sessions('sess_123')->messages->send([
+    'to'          => '628123456789',
+    'type'        => 'interactive',
+    'interactive' => [
+        'type'     => 'flow',
+        'bodyText' => 'Book an appointment',
+        'flow'     => [
+            'flowCta'           => 'Book now',
+            'flowId'            => '1234567890',          // optional
+            'flowToken'         => 'tok_abc',             // optional
+            'flowAction'        => 'navigate',           // 'navigate' | 'data_exchange'
+            'flowActionPayload' => ['screen' => 'WELCOME'], // optional
+            'mode'              => 'published',           // 'draft' | 'published'
+        ],
+    ],
+]);
+
+// Single catalog product
+$wao->sessions('sess_123')->messages->send([
+    'to'          => '628123456789',
+    'type'        => 'interactive',
+    'interactive' => [
+        'type'              => 'product',
+        'bodyText'          => 'Check this out',   // optional
+        'footerText'        => 'In stock',         // optional
+        'catalogId'         => 'cat_123',
+        'productRetailerId' => 'SKU-1',
+    ],
+]);
+
+// Multi-section product list
+$wao->sessions('sess_123')->messages->send([
+    'to'          => '628123456789',
+    'type'        => 'interactive',
+    'interactive' => [
+        'type'            => 'product_list',
+        'headerText'      => 'Our catalog',
+        'bodyText'        => 'Browse our products',
+        'footerText'      => 'Free shipping',      // optional
+        'catalogId'       => 'cat_123',
+        'productSections' => [
+            [
+                'title'        => 'Shoes',          // optional
+                'productItems' => [
+                    ['productRetailerId' => 'SKU-1'],
+                    ['productRetailerId' => 'SKU-2'],
+                ],
+            ],
+        ],
+    ],
+]);
+```
+
 ### Idempotency
 
 Pass a key so a retried send returns the original result instead of duplicating:

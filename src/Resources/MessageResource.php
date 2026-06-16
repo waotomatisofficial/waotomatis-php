@@ -27,7 +27,18 @@ final class MessageResource
      *               (or 'link' => 'https://...' instead of 'mediaId')
      *   - video / audio / document: same media shape (audio adds 'voice', document
      *     adds 'fileName')
-     *   - sticker / template / interactive: per the API contract
+     *   - sticker / template: per the API contract
+     *   - reaction: ['type' => 'reaction', 'reaction' => ['messageId' => ..., 'emoji' => '👍']]
+     *               (emoji '' clears a previously-sent reaction)
+     *   - location: ['type' => 'location', 'location' => ['latitude' => ..., 'longitude' => ...,
+     *               'name' => ?, 'address' => ?]]
+     *   - contacts: ['type' => 'contacts', 'contacts' => [[...]]] — an array of WhatsApp
+     *               contact-card objects (each requires name.formatted_name)
+     *   - carousel: ['type' => 'carousel', 'carousel' => ['name' => ..., 'languageCode' => ...,
+     *               'cards' => [...]]] — a carousel template
+     *   - interactive: ['type' => 'interactive', 'interactive' => ['type' => ..., ...]] where
+     *               interactive.type is one of button | list | cta_url | flow | product |
+     *               product_list, per the API contract
      *
      * Pass `$idempotencyKey` (or include it as `idempotencyKey` in `$input`) to
      * dedupe retries — the same key returns the original result.
